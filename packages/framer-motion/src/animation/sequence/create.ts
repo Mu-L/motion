@@ -18,6 +18,7 @@ import {
     getEasingForSegment,
     progress,
     secondsToMilliseconds,
+    warning,
 } from "motion-utils"
 import { resolveSubjects } from "../animate/resolve-subjects"
 import {
@@ -49,16 +50,6 @@ export function createAnimationsFromSequence(
     const sequences = new Map<Element | MotionValue, SequenceMap>()
     const elementCache = {}
     const timeLabels = new Map<string, number>()
-
-    /**
-     * Store per-value repeat options that can't be expanded into keyframes
-     * (e.g. repeat: Infinity) and need to be passed through to the
-     * final transition for the animation engine to handle.
-     */
-    const repeatPassthrough = new Map<
-        ValueSequence,
-        Pick<Transition, "repeat" | "repeatType" | "repeatDelay">
-    >()
 
     let prevTime = 0
     let currentTime = 0
@@ -204,61 +195,63 @@ export function createAnimationsFromSequence(
                 valueKeyframesAsList.unshift(null)
 
             /**
-             * Handle repeat options
+             * Handle repeat options. A segment can only express a finite
+             * number of repeats — `repeat: Infinity` and very large repeat
+             * counts can't be sequenced (anything after them would be dead
+             * time) and would explode the keyframe array, so we ignore
+             * them with a warning. `repeatType` and `repeatDelay` are
+             * not implemented for segments and are ignored.
              */
             if (repeat) {
-                if (repeat >= MAX_REPEAT) {
-                    /**
-                     * For large/infinite repeat counts, don't expand keyframes.
-                     * Pass repeat options through to the final transition
-                     * and let the animation engine handle repeating.
-                     */
-                    repeatPassthrough.set(valueSequence, {
-                        repeat,
-                        repeatType: repeatType as Transition["repeatType"],
-                        repeatDelay: repeatDelay || undefined,
-                    })
-                } else {
-                    duration = calculateRepeatDuration(
-                        duration,
-                        repeat,
-                        repeatDelay
-                    )
+                warning(
+                    repeat < MAX_REPEAT,
+                    `Sequence segments can't repeat ${repeat} times — ignoring repeat option. Use a value below ${MAX_REPEAT} or apply repeat at the sequence level instead.`
+                )
+                warning(
+                    !repeatType || repeatType === "loop",
+                    `repeatType "${repeatType}" is not supported on sequence segments — repeats will play as "loop".`
+                )
+                warning(
+                    !repeatDelay,
+                    `repeatDelay is not supported on sequence segments and will be ignored.`
+                )
+            }
 
-                    const originalKeyframes = [...valueKeyframesAsList]
-                    const originalTimes = [...times]
-                    ease = Array.isArray(ease) ? [...ease] : [ease]
-                    const originalEase = [...ease]
+            if (repeat && repeat < MAX_REPEAT) {
+                duration = calculateRepeatDuration(duration, repeat, 0)
+
+                const originalKeyframes = [...valueKeyframesAsList]
+                const originalTimes = [...times]
+                ease = Array.isArray(ease) ? [...ease] : [ease]
+                const originalEase = [...ease]
+
+                for (
+                    let repeatIndex = 0;
+                    repeatIndex < repeat;
+                    repeatIndex++
+                ) {
+                    valueKeyframesAsList.push(...originalKeyframes)
 
                     for (
-                        let repeatIndex = 0;
-                        repeatIndex < repeat;
-                        repeatIndex++
+                        let keyframeIndex = 0;
+                        keyframeIndex < originalKeyframes.length;
+                        keyframeIndex++
                     ) {
-                        valueKeyframesAsList.push(...originalKeyframes)
-
-                        for (
-                            let keyframeIndex = 0;
-                            keyframeIndex < originalKeyframes.length;
-                            keyframeIndex++
-                        ) {
-                            times.push(
-                                originalTimes[keyframeIndex] +
-                                    (repeatIndex + 1)
-                            )
-                            ease.push(
-                                keyframeIndex === 0
-                                    ? "linear"
-                                    : getEasingForSegment(
-                                          originalEase,
-                                          keyframeIndex - 1
-                                      )
-                            )
-                        }
+                        times.push(
+                            originalTimes[keyframeIndex] + (repeatIndex + 1)
+                        )
+                        ease.push(
+                            keyframeIndex === 0
+                                ? "linear"
+                                : getEasingForSegment(
+                                      originalEase,
+                                      keyframeIndex - 1
+                                  )
+                        )
                     }
-
-                    normalizeTimes(times, repeat)
                 }
+
+                normalizeTimes(times, repeat)
             }
 
             const targetTime = startTime + duration
@@ -407,7 +400,6 @@ export function createAnimationsFromSequence(
                 ease: valueEasing,
                 times: valueOffset,
                 ...sequenceTransition,
-                ...repeatPassthrough.get(valueSequence),
             }
         }
     })

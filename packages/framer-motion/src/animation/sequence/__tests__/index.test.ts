@@ -730,7 +730,9 @@ describe("createAnimationsFromSequence", () => {
         expect(transition.y.times).toEqual([0, 0.5, 1])
     })
 
-    test("It passes repeat: Infinity through to the final transition (#2915)", () => {
+    test("It ignores repeat: Infinity on a segment with a warning (#2915)", () => {
+        const warn = jest.spyOn(console, "warn").mockImplementation(() => {})
+
         const animations = createAnimationsFromSequence(
             [
                 [
@@ -744,13 +746,91 @@ describe("createAnimationsFromSequence", () => {
             { spring }
         )
 
+        // Segment plays once. No repeat is smuggled onto the final transition.
         expect(animations.get(a)!.keyframes.x).toEqual([0, 100])
         const { duration, times, ease, repeat } =
             animations.get(a)!.transition.x
         expect(duration).toEqual(1)
         expect(times).toEqual([0, 1])
         expect(ease).toEqual(["linear", "linear"])
-        expect(repeat).toEqual(Infinity)
+        expect(repeat).toBeUndefined()
+
+        expect(warn).toHaveBeenCalledWith(
+            expect.stringContaining("Sequence segments can't repeat")
+        )
+
+        warn.mockRestore()
+    })
+
+    test("It ignores repeat counts >= MAX_REPEAT on a segment with a warning", () => {
+        const warn = jest.spyOn(console, "warn").mockImplementation(() => {})
+
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 50, ease: "linear" },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(animations.get(a)!.keyframes.x).toEqual([0, 100])
+        expect(animations.get(a)!.transition.x.repeat).toBeUndefined()
+        expect(warn).toHaveBeenCalledWith(
+            expect.stringContaining("Sequence segments can't repeat")
+        )
+
+        warn.mockRestore()
+    })
+
+    test("It warns when repeatType is set on a segment", () => {
+        const warn = jest.spyOn(console, "warn").mockImplementation(() => {})
+
+        createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 1, repeatType: "reverse" },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(warn).toHaveBeenCalledWith(
+            expect.stringContaining('repeatType "reverse"')
+        )
+
+        warn.mockRestore()
+    })
+
+    test("It warns when repeatDelay is set on a segment", () => {
+        const warn = jest.spyOn(console, "warn").mockImplementation(() => {})
+
+        createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 1, repeatDelay: 0.5 },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        expect(warn).toHaveBeenCalledWith(
+            expect.stringContaining("repeatDelay is not supported")
+        )
+
+        warn.mockRestore()
     })
 
     test.skip("It correctly adds repeatDelay between repeated keyframes", () => {
