@@ -1,4 +1,4 @@
-import { frame } from "motion-dom"
+import { frame, supportsFlags } from "motion-dom"
 import { scroll } from "../"
 import { ScrollOffset } from "../offsets/presets"
 import { scrollInfo } from "../track"
@@ -833,5 +833,50 @@ describe("scroll", () => {
 
             resolve()
         })
+    })
+
+    test("Respects offset when callback has no info parameter (#3668).", async () => {
+        // JSDOM lacks window.ScrollTimeline; fake it so the native code path
+        // is taken — that's the path that previously dropped offsets.
+        class FakeScrollTimeline {
+            currentTime: { value: number } | null = { value: 30 }
+        }
+        const originalScrollTimeline = (window as any).ScrollTimeline
+        ;(window as any).ScrollTimeline = FakeScrollTimeline
+        supportsFlags.scrollTimeline = true
+
+        try {
+            await fireScroll(0)
+            setWindowHeight(1000)
+            setDocumentHeight(3000)
+
+            let receivedProgress: number | undefined
+
+            const stopScroll = scroll(
+                (progress: number) => {
+                    receivedProgress = progress
+                },
+                { offset: [0.5, 1] }
+            )
+
+            // scrollLength = 2000. raw progress 600/2000 = 0.3, before offset
+            // start of 0.5 → clamped to 0. Without the fix, callback would
+            // receive FakeScrollTimeline.currentTime.value / 100 = 0.3.
+            await fireScroll(600)
+            expect(receivedProgress).toBeCloseTo(0)
+
+            // raw 1500/2000 = 0.75 → (0.75 - 0.5) / (1 - 0.5) = 0.5
+            await fireScroll(1500)
+            expect(receivedProgress).toBeCloseTo(0.5)
+
+            stopScroll()
+        } finally {
+            supportsFlags.scrollTimeline = undefined
+            if (originalScrollTimeline === undefined) {
+                delete (window as any).ScrollTimeline
+            } else {
+                ;(window as any).ScrollTimeline = originalScrollTimeline
+            }
+        }
     })
 })
