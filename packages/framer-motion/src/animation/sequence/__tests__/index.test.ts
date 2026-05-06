@@ -730,6 +730,62 @@ describe("createAnimationsFromSequence", () => {
         expect(transition.y.times).toEqual([0, 0.5, 1])
     })
 
+    describe("unsupported repeat options on segments (#2915)", () => {
+        let warn: jest.SpyInstance
+        beforeEach(() => {
+            warn = jest
+                .spyOn(console, "warn")
+                .mockImplementation(() => {})
+        })
+        afterEach(() => {
+            warn.mockRestore()
+        })
+
+        test.each([Infinity, 50])(
+            "ignores repeat=%s on a segment with a warning",
+            (count) => {
+                const animations = createAnimationsFromSequence(
+                    [
+                        [
+                            a,
+                            { x: [0, 100] },
+                            { duration: 1, repeat: count, ease: "linear" },
+                        ],
+                    ],
+                    undefined,
+                    undefined,
+                    { spring }
+                )
+
+                // Segment plays once; no repeat is smuggled onto the final transition.
+                expect(animations.get(a)!.keyframes.x).toEqual([0, 100])
+                expect(animations.get(a)!.transition.x.repeat).toBeUndefined()
+                expect(warn).toHaveBeenCalledWith(
+                    expect.stringContaining("Sequence segments can't repeat")
+                )
+            }
+        )
+
+        test("warns when repeatDelay is set on a segment", () => {
+            createAnimationsFromSequence(
+                [
+                    [
+                        a,
+                        { x: [0, 100] },
+                        { duration: 1, repeat: 1, repeatDelay: 0.5 },
+                    ],
+                ],
+                undefined,
+                undefined,
+                { spring }
+            )
+
+            expect(warn).toHaveBeenCalledWith(
+                expect.stringContaining("repeatDelay is not supported")
+            )
+        })
+    })
+
     test.skip("It correctly adds repeatDelay between repeated keyframes", () => {
         const animations = createAnimationsFromSequence(
             [
@@ -750,7 +806,7 @@ describe("createAnimationsFromSequence", () => {
         expect(times).toEqual([0, 0.4, 0.6, 0.6, 1])
     })
 
-    test.skip("It correctly mirrors repeated keyframes", () => {
+    test("It correctly mirrors repeated keyframes", () => {
         const animations = createAnimationsFromSequence(
             [
                 [
@@ -772,7 +828,7 @@ describe("createAnimationsFromSequence", () => {
         expect(times).toEqual([0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1])
     })
 
-    test.skip("It correctly reverses repeated keyframes", () => {
+    test("It correctly reverses repeated keyframes", () => {
         const animations = createAnimationsFromSequence(
             [
                 [
@@ -792,6 +848,53 @@ describe("createAnimationsFromSequence", () => {
         const { duration, times } = animations.get(a)!.transition.x
         expect(duration).toEqual(4)
         expect(times).toEqual([0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1])
+    })
+
+    test("Reverse applies reverseEasing to function easings on flipped iterations", () => {
+        const forwardEase = (p: number) => p * p
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 1, repeatType: "reverse", ease: forwardEase },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Keyframes [0, 100, 100, 0]. Segment from index 2→3 is the reversed
+        // iteration's actual movement (100→0). Its easing is at index 2.
+        const easeArray = animations.get(a)!.transition.x.ease as Easing[]
+        const reversedSegmentEase = easeArray[2] as (p: number) => number
+        // reverseEasing(f)(p) = 1 - f(1 - p). With f(p) = p*p, expect 1 - (1-p)^2.
+        expect(reversedSegmentEase(0.25)).toBeCloseTo(1 - Math.pow(1 - 0.25, 2))
+        expect(reversedSegmentEase(0.75)).toBeCloseTo(1 - Math.pow(1 - 0.75, 2))
+    })
+
+    test("Mirror keeps original easings on flipped iterations (matches JSAnimation runtime)", () => {
+        const forwardEase = (p: number) => p * p
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 1, repeatType: "mirror", ease: forwardEase },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Mirror matches JSAnimation's mirroredGenerator: reversed
+        // keyframes with the same easing applied as-is. Segment from
+        // index 2→3 (the flipped iteration's 100→0 movement) should use
+        // the original forwardEase, NOT a modified curve.
+        const easeArray = animations.get(a)!.transition.x.ease as Easing[]
+        expect(easeArray[2]).toBe(forwardEase)
     })
 
     test("Spring defaultTransition does not leak type into multi-element sequence (#3158)", () => {
