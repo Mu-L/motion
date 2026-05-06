@@ -197,12 +197,10 @@ export function createAnimationsFromSequence(
                 valueKeyframesAsList.unshift(null)
 
             /**
-             * Handle repeat options. A segment can only express a finite
-             * number of repeats — `repeat: Infinity` and very large repeat
-             * counts can't be sequenced (anything after them would be dead
-             * time) and would explode the keyframe array, so we ignore
-             * them with a warning. `repeatDelay` is not implemented for
-             * segments and is ignored.
+             * Segments can't express `repeat: Infinity` or very large
+             * counts — they'd leave dead time after the segment or
+             * explode the keyframe array. Ignore with a warning.
+             * `repeatDelay` is unsupported on segments.
              */
             if (repeat) {
                 warning(
@@ -224,50 +222,46 @@ export function createAnimationsFromSequence(
                 const originalEase = [...ease]
 
                 /**
-                 * Pre-compute keyframe + easing arrays for "flipped"
-                 * iterations (reverse / mirror). Both play the segment
-                 * backwards, so the keyframes themselves are reversed.
-                 *
-                 * - reverse: time runs backwards through the original
-                 *   easing curve, which on the reversed keyframe array
-                 *   means each segment uses reverseEasing(originalEase)
-                 *   in reversed pair order.
-                 * - mirror: equivalent to JSAnimation's mirroredGenerator
-                 *   — same easing array applied to the reversed keyframes.
-                 *
-                 * String easings are passed through unchanged; they're
-                 * resolved later by the keyframes engine.
+                 * For reverse/mirror, alternate iterations play the segment
+                 * backwards. reverse runs time backwards through the easing
+                 * (each function easing → reverseEasing'd, array reversed
+                 * to match the flipped pairs). mirror keeps the original
+                 * easing-pair order but passes each function easing through
+                 * mirrorEasing for smooth velocity at the seam. String
+                 * easings pass through unchanged.
                  */
-                const flippedKeyframes = [...originalKeyframes].reverse()
-                const reverseEase = [...originalEase]
-                    .reverse()
-                    .map((e) => (typeof e === "function" ? reverseEasing(e) : e))
-                const mirrorEase = [...originalEase].map((e) =>
-                    typeof e === "function" ? mirrorEasing(e) : e
-                )
+                const isFlipping =
+                    repeatType === "reverse" || repeatType === "mirror"
+                let flippedKeyframes = originalKeyframes
+                let flippedEases = originalEase
+                if (isFlipping) {
+                    flippedKeyframes = [...originalKeyframes].reverse()
+                    flippedEases =
+                        repeatType === "mirror"
+                            ? originalEase.map((e) =>
+                                  typeof e === "function"
+                                      ? mirrorEasing(e)
+                                      : e
+                              )
+                            : [...originalEase]
+                                  .reverse()
+                                  .map((e) =>
+                                      typeof e === "function"
+                                          ? reverseEasing(e)
+                                          : e
+                                  )
+                }
 
                 for (
                     let repeatIndex = 0;
                     repeatIndex < repeat;
                     repeatIndex++
                 ) {
-                    /**
-                     * repeatIndex 0 is the 2nd play (1st repeat), which
-                     * is the first "flipped" iteration for reverse/mirror.
-                     */
-                    const isFlipped =
-                        (repeatType === "reverse" ||
-                            repeatType === "mirror") &&
-                        repeatIndex % 2 === 0
-
+                    const isFlipped = isFlipping && repeatIndex % 2 === 0
                     const iterKeyframes = isFlipped
                         ? flippedKeyframes
                         : originalKeyframes
-                    const iterEase = isFlipped
-                        ? repeatType === "mirror"
-                            ? mirrorEase
-                            : reverseEase
-                        : originalEase
+                    const iterEase = isFlipped ? flippedEases : originalEase
 
                     valueKeyframesAsList.push(...iterKeyframes)
 
