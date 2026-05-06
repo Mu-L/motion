@@ -836,12 +836,10 @@ describe("scroll", () => {
     })
 
     test("Respects offset when callback has no info parameter (#3668).", async () => {
-        // Force the native ScrollTimeline code path. JSDOM doesn't define
-        // window.ScrollTimeline, so without the support flag the code falls
-        // through to the JS scrollInfo path and the bug doesn't reproduce.
+        // JSDOM lacks window.ScrollTimeline; fake it so the native code path
+        // is taken — that's the path that previously dropped offsets.
         class FakeScrollTimeline {
             currentTime: { value: number } | null = { value: 30 }
-            constructor(_options: any) {}
         }
         const originalScrollTimeline = (window as any).ScrollTimeline
         ;(window as any).ScrollTimeline = FakeScrollTimeline
@@ -854,10 +852,6 @@ describe("scroll", () => {
 
             let receivedProgress: number | undefined
 
-            // 1-arg callback (no info parameter) with offset.
-            // Without the fix, the native ScrollTimeline path is taken and
-            // offsets are silently ignored — the callback would receive the
-            // FakeScrollTimeline.currentTime.value / 100 = 0.3.
             const stopScroll = scroll(
                 (progress: number) => {
                     receivedProgress = progress
@@ -865,15 +859,14 @@ describe("scroll", () => {
                 { offset: [0.5, 1] }
             )
 
+            // scrollLength = 2000. raw progress 600/2000 = 0.3, before offset
+            // start of 0.5 → clamped to 0. Without the fix, callback would
+            // receive FakeScrollTimeline.currentTime.value / 100 = 0.3.
             await fireScroll(600)
-            // Raw scroll progress = 600 / 2000 = 0.3.
-            // With offset [0.5, 1] applied, progress should be clamped to 0
-            // because we haven't yet reached the start of the offset range.
             expect(receivedProgress).toBeCloseTo(0)
 
+            // raw 1500/2000 = 0.75 → (0.75 - 0.5) / (1 - 0.5) = 0.5
             await fireScroll(1500)
-            // Raw progress = 1500 / 2000 = 0.75.
-            // With offset [0.5, 1]: (0.75 - 0.5) / (1 - 0.5) = 0.5
             expect(receivedProgress).toBeCloseTo(0.5)
 
             stopScroll()
