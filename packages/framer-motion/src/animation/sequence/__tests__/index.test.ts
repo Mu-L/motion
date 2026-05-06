@@ -787,29 +787,6 @@ describe("createAnimationsFromSequence", () => {
         warn.mockRestore()
     })
 
-    test("It warns when repeatType is set on a segment", () => {
-        const warn = jest.spyOn(console, "warn").mockImplementation(() => {})
-
-        createAnimationsFromSequence(
-            [
-                [
-                    a,
-                    { x: [0, 100] },
-                    { duration: 1, repeat: 1, repeatType: "reverse" },
-                ],
-            ],
-            undefined,
-            undefined,
-            { spring }
-        )
-
-        expect(warn).toHaveBeenCalledWith(
-            expect.stringContaining('repeatType "reverse"')
-        )
-
-        warn.mockRestore()
-    })
-
     test("It warns when repeatDelay is set on a segment", () => {
         const warn = jest.spyOn(console, "warn").mockImplementation(() => {})
 
@@ -853,7 +830,7 @@ describe("createAnimationsFromSequence", () => {
         expect(times).toEqual([0, 0.4, 0.6, 0.6, 1])
     })
 
-    test.skip("It correctly mirrors repeated keyframes", () => {
+    test("It correctly mirrors repeated keyframes", () => {
         const animations = createAnimationsFromSequence(
             [
                 [
@@ -875,7 +852,7 @@ describe("createAnimationsFromSequence", () => {
         expect(times).toEqual([0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1])
     })
 
-    test.skip("It correctly reverses repeated keyframes", () => {
+    test("It correctly reverses repeated keyframes", () => {
         const animations = createAnimationsFromSequence(
             [
                 [
@@ -895,6 +872,54 @@ describe("createAnimationsFromSequence", () => {
         const { duration, times } = animations.get(a)!.transition.x
         expect(duration).toEqual(4)
         expect(times).toEqual([0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1])
+    })
+
+    test("Reverse applies reverseEasing to function easings on flipped iterations", () => {
+        const forwardEase = (p: number) => p * p
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 1, repeatType: "reverse", ease: forwardEase },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        // Keyframes [0, 100, 100, 0]. Segment from index 2→3 is the reversed
+        // iteration's actual movement (100→0). Its easing is at index 2.
+        const easeArray = animations.get(a)!.transition.x.ease as Easing[]
+        const reversedSegmentEase = easeArray[2] as (p: number) => number
+        // reverseEasing(f)(p) = 1 - f(1 - p). With f(p) = p*p, expect 1 - (1-p)^2.
+        expect(reversedSegmentEase(0.25)).toBeCloseTo(1 - Math.pow(1 - 0.25, 2))
+        expect(reversedSegmentEase(0.75)).toBeCloseTo(1 - Math.pow(1 - 0.75, 2))
+    })
+
+    test("Mirror applies mirrorEasing to function easings on flipped iterations", () => {
+        const forwardEase = (p: number) => p * p
+        const animations = createAnimationsFromSequence(
+            [
+                [
+                    a,
+                    { x: [0, 100] },
+                    { duration: 1, repeat: 1, repeatType: "mirror", ease: forwardEase },
+                ],
+            ],
+            undefined,
+            undefined,
+            { spring }
+        )
+
+        const easeArray = animations.get(a)!.transition.x.ease as Easing[]
+        const mirroredSegmentEase = easeArray[2] as (p: number) => number
+        // mirrorEasing(f)(p) for p<=0.5 = f(2p)/2; for p>0.5 = (2 - f(2(1-p)))/2.
+        expect(mirroredSegmentEase(0.25)).toBeCloseTo(Math.pow(2 * 0.25, 2) / 2)
+        expect(mirroredSegmentEase(0.75)).toBeCloseTo(
+            (2 - Math.pow(2 * (1 - 0.75), 2)) / 2
+        )
     })
 
     test("Spring defaultTransition does not leak type into multi-element sequence (#3158)", () => {

@@ -16,7 +16,9 @@ import {
 import {
     Easing,
     getEasingForSegment,
+    mirrorEasing,
     progress,
+    reverseEasing,
     secondsToMilliseconds,
     warning,
 } from "motion-utils"
@@ -199,17 +201,13 @@ export function createAnimationsFromSequence(
              * number of repeats — `repeat: Infinity` and very large repeat
              * counts can't be sequenced (anything after them would be dead
              * time) and would explode the keyframe array, so we ignore
-             * them with a warning. `repeatType` and `repeatDelay` are
-             * not implemented for segments and are ignored.
+             * them with a warning. `repeatDelay` is not implemented for
+             * segments and is ignored.
              */
             if (repeat) {
                 warning(
                     repeat < MAX_REPEAT,
                     `Sequence segments can't repeat ${repeat} times — ignoring repeat option. Use a value below ${MAX_REPEAT} or apply repeat at the sequence level instead.`
-                )
-                warning(
-                    !repeatType || repeatType === "loop",
-                    `repeatType "${repeatType}" is not supported on sequence segments — repeats will play as "loop".`
                 )
                 warning(
                     !repeatDelay,
@@ -225,16 +223,57 @@ export function createAnimationsFromSequence(
                 ease = Array.isArray(ease) ? [...ease] : [ease]
                 const originalEase = [...ease]
 
+                /**
+                 * Pre-compute keyframe + easing arrays for "flipped"
+                 * iterations (reverse / mirror). Both play the segment
+                 * backwards, so the keyframes themselves are reversed.
+                 *
+                 * - reverse: time runs backwards through the original
+                 *   easing curve, which on the reversed keyframe array
+                 *   means each segment uses reverseEasing(originalEase)
+                 *   in reversed pair order.
+                 * - mirror: equivalent to JSAnimation's mirroredGenerator
+                 *   — same easing array applied to the reversed keyframes.
+                 *
+                 * String easings are passed through unchanged; they're
+                 * resolved later by the keyframes engine.
+                 */
+                const flippedKeyframes = [...originalKeyframes].reverse()
+                const reverseEase = [...originalEase]
+                    .reverse()
+                    .map((e) => (typeof e === "function" ? reverseEasing(e) : e))
+                const mirrorEase = [...originalEase].map((e) =>
+                    typeof e === "function" ? mirrorEasing(e) : e
+                )
+
                 for (
                     let repeatIndex = 0;
                     repeatIndex < repeat;
                     repeatIndex++
                 ) {
-                    valueKeyframesAsList.push(...originalKeyframes)
+                    /**
+                     * repeatIndex 0 is the 2nd play (1st repeat), which
+                     * is the first "flipped" iteration for reverse/mirror.
+                     */
+                    const isFlipped =
+                        (repeatType === "reverse" ||
+                            repeatType === "mirror") &&
+                        repeatIndex % 2 === 0
+
+                    const iterKeyframes = isFlipped
+                        ? flippedKeyframes
+                        : originalKeyframes
+                    const iterEase = isFlipped
+                        ? repeatType === "mirror"
+                            ? mirrorEase
+                            : reverseEase
+                        : originalEase
+
+                    valueKeyframesAsList.push(...iterKeyframes)
 
                     for (
                         let keyframeIndex = 0;
-                        keyframeIndex < originalKeyframes.length;
+                        keyframeIndex < iterKeyframes.length;
                         keyframeIndex++
                     ) {
                         times.push(
@@ -244,7 +283,7 @@ export function createAnimationsFromSequence(
                             keyframeIndex === 0
                                 ? "linear"
                                 : getEasingForSegment(
-                                      originalEase,
+                                      iterEase,
                                       keyframeIndex - 1
                                   )
                         )
