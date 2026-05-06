@@ -874,7 +874,7 @@ describe("createAnimationsFromSequence", () => {
         expect(reversedSegmentEase(0.75)).toBeCloseTo(1 - Math.pow(1 - 0.75, 2))
     })
 
-    test("Mirror applies mirrorEasing to function easings on flipped iterations", () => {
+    test("Mirror keeps original easings on flipped iterations (matches JSAnimation runtime)", () => {
         const forwardEase = (p: number) => p * p
         const animations = createAnimationsFromSequence(
             [
@@ -889,13 +889,12 @@ describe("createAnimationsFromSequence", () => {
             { spring }
         )
 
+        // Mirror matches JSAnimation's mirroredGenerator: reversed
+        // keyframes with the same easing applied as-is. Segment from
+        // index 2→3 (the flipped iteration's 100→0 movement) should use
+        // the original forwardEase, NOT a modified curve.
         const easeArray = animations.get(a)!.transition.x.ease as Easing[]
-        const mirroredSegmentEase = easeArray[2] as (p: number) => number
-        // mirrorEasing(f)(p) for p<=0.5 = f(2p)/2; for p>0.5 = (2 - f(2(1-p)))/2.
-        expect(mirroredSegmentEase(0.25)).toBeCloseTo(Math.pow(2 * 0.25, 2) / 2)
-        expect(mirroredSegmentEase(0.75)).toBeCloseTo(
-            (2 - Math.pow(2 * (1 - 0.75), 2)) / 2
-        )
+        expect(easeArray[2]).toBe(forwardEase)
     })
 
     test("Spring defaultTransition does not leak type into multi-element sequence (#3158)", () => {

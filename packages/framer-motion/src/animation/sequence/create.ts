@@ -16,7 +16,6 @@ import {
 import {
     Easing,
     getEasingForSegment,
-    mirrorEasing,
     progress,
     reverseEasing,
     secondsToMilliseconds,
@@ -223,12 +222,12 @@ export function createAnimationsFromSequence(
 
                 /**
                  * For reverse/mirror, alternate iterations play the segment
-                 * backwards. reverse runs time backwards through the easing
-                 * (each function easing → reverseEasing'd, array reversed
-                 * to match the flipped pairs). mirror keeps the original
-                 * easing-pair order but passes each function easing through
-                 * mirrorEasing for smooth velocity at the seam. String
-                 * easings pass through unchanged.
+                 * backwards. mirror matches JSAnimation's mirroredGenerator:
+                 * reversed keyframes, easings unchanged. reverse matches
+                 * JSAnimation's iterationProgress = 1 - p: reversed
+                 * keyframes, easing array reversed AND each function easing
+                 * mapped through reverseEasing (string easings unchanged —
+                 * they're resolved later by the keyframes engine).
                  */
                 const isFlipping =
                     repeatType === "reverse" || repeatType === "mirror"
@@ -236,20 +235,15 @@ export function createAnimationsFromSequence(
                 let flippedEases = originalEase
                 if (isFlipping) {
                     flippedKeyframes = [...originalKeyframes].reverse()
-                    flippedEases =
-                        repeatType === "mirror"
-                            ? originalEase.map((e) =>
-                                  typeof e === "function"
-                                      ? mirrorEasing(e)
-                                      : e
-                              )
-                            : [...originalEase]
-                                  .reverse()
-                                  .map((e) =>
-                                      typeof e === "function"
-                                          ? reverseEasing(e)
-                                          : e
-                                  )
+                    if (repeatType === "reverse") {
+                        flippedEases = [...originalEase]
+                            .reverse()
+                            .map((e) =>
+                                typeof e === "function"
+                                    ? reverseEasing(e)
+                                    : e
+                            )
+                    }
                 }
 
                 for (
