@@ -163,18 +163,7 @@ export const es = Object.assign({}, config, {
 
 const typePlugins = [dts({compilerOptions: {...tsconfig, baseUrl:"types"}})]
 
-const types = {
-    input: ["types/index.d.ts", "types/client.d.ts"],
-    output: {
-        format: "es",
-        entryFileNames: "[name].d.ts",
-        dir: "dist",
-    },
-    plugins: typePlugins,
-}
-
-
-function createTypes(input, file) {   
+function createTypes(input, file) {
     return {
         input,
         output: {
@@ -185,7 +174,8 @@ function createTypes(input, file) {
     }
 }
 
-
+const indexTypes = createTypes("types/index.d.ts", "dist/index.d.ts")
+const clientTypes = createTypes("types/client.d.ts", "dist/client.d.ts")
 const miniTypes = createTypes("types/mini.d.ts", "dist/mini.d.ts")
 const debugTypes = createTypes("types/debug.d.ts", "dist/debug.d.ts")
 const animateTypes = createTypes("types/dom.d.ts", "dist/dom.d.ts")
@@ -207,7 +197,8 @@ export default [
     cjsDomMini,
     cjsM,
     es,
-    types,
+    indexTypes,
+    clientTypes,
     debugTypes,
     mTypes,
     miniTypes,
