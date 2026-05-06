@@ -15,7 +15,11 @@ export function attachToFunction(
     onScroll: OnScroll,
     options: ScrollOptionsWithDefaults
 ) {
-    if (isOnScrollWithInfo(onScroll)) {
+    /**
+     * Native ScrollTimeline ignores `offset`/`target`, so the JS scrollInfo
+     * path is required whenever either is set — even for 1-arg callbacks.
+     */
+    if (isOnScrollWithInfo(onScroll) || options.offset || options.target) {
         return scrollInfo((info) => {
             onScroll(info[options.axis!].progress, info)
         }, options)
