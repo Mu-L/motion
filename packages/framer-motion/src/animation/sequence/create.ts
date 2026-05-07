@@ -199,21 +199,28 @@ export function createAnimationsFromSequence(
              * Segments can't express `repeat: Infinity` or very large
              * counts — they'd leave dead time after the segment or
              * explode the keyframe array. Ignore with a warning.
-             * `repeatDelay` is unsupported on segments.
              */
             if (repeat) {
                 warning(
                     repeat < MAX_REPEAT,
                     `Sequence segments can't repeat ${repeat} times — ignoring repeat option. Use a value below ${MAX_REPEAT} or apply repeat at the sequence level instead.`
                 )
-                warning(
-                    !repeatDelay,
-                    `repeatDelay is not supported on sequence segments and will be ignored.`
-                )
             }
 
             if (repeat && repeat < MAX_REPEAT) {
-                duration = calculateRepeatDuration(duration, repeat, 0)
+                /**
+                 * Express repeatDelay in units of a single iteration's duration
+                 * so it can be added to the per-iteration time offsets below
+                 * before they're normalized to 0-1.
+                 */
+                const repeatDelayUnits =
+                    duration > 0 ? repeatDelay / duration : 0
+
+                duration = calculateRepeatDuration(
+                    duration,
+                    repeat,
+                    repeatDelay
+                )
 
                 const originalKeyframes = [...valueKeyframesAsList]
                 const originalTimes = [...times]
@@ -256,6 +263,23 @@ export function createAnimationsFromSequence(
                         ? flippedKeyframes
                         : originalKeyframes
                     const iterEase = isFlipped ? flippedEases : originalEase
+                    const iterStartOffset =
+                        (repeatIndex + 1) * (1 + repeatDelayUnits)
+
+                    /**
+                     * If repeatDelay is set, hold the previous iteration's
+                     * final value through the delay by inserting a keyframe
+                     * at the moment the next iteration begins.
+                     */
+                    if (repeatDelayUnits > 0) {
+                        valueKeyframesAsList.push(
+                            valueKeyframesAsList[
+                                valueKeyframesAsList.length - 1
+                            ]
+                        )
+                        times.push(iterStartOffset)
+                        ease.push("linear")
+                    }
 
                     valueKeyframesAsList.push(...iterKeyframes)
 
@@ -265,7 +289,7 @@ export function createAnimationsFromSequence(
                         keyframeIndex++
                     ) {
                         times.push(
-                            originalTimes[keyframeIndex] + (repeatIndex + 1)
+                            originalTimes[keyframeIndex] + iterStartOffset
                         )
                         ease.push(
                             keyframeIndex === 0
@@ -278,7 +302,7 @@ export function createAnimationsFromSequence(
                     }
                 }
 
-                normalizeTimes(times, repeat)
+                normalizeTimes(times, repeat, repeatDelayUnits)
             }
 
             const targetTime = startTime + duration
