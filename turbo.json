@@ -11,10 +11,10 @@
         },
         "lint": {},
         "test": {
-            "dependsOn": ["^build"]
+            "dependsOn": ["build", "^build"]
         },
         "test-server": {
-            "dependsOn": ["^build"]
+            "dependsOn": ["build", "^build"]
         },
         "test-e2e": {
             "dependsOn": ["build"]
