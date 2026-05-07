@@ -12,8 +12,11 @@ if (file.includes(`<reference types="react" />`)) {
 
 /**
  * Verify every "types" entry in package.json exports points to a file that
- * exists, and that the bundled .d.ts file is self-contained (no relative
- * imports of internal chunks). Issue #2900.
+ * exists, that the bundle is self-contained (no relative imports of internal
+ * chunks — #2900), and that it doesn't inline its own `declare class
+ * MotionValue` (two inlined declarations have nominally-distinct `private
+ * current` fields, breaking assignability between entry points like
+ * `motion/react` and `motion/react-m` — #2887).
  */
 for (const [name, entry] of Object.entries(pkg.exports)) {
     if (!entry || typeof entry !== "object" || !entry.types) continue
@@ -30,6 +33,12 @@ for (const [name, entry] of Object.entries(pkg.exports)) {
     if (relativeImport) {
         throw new Error(
             `Types file for "${name}" (${entry.types}) contains a relative import (${relativeImport[1]}) — types must be bundled into a single self-contained file`
+        )
+    }
+
+    if (/^declare class MotionValue\b/m.test(contents)) {
+        throw new Error(
+            `Types file for "${name}" (${entry.types}) inlines \`declare class MotionValue\` instead of importing it from motion-dom — this breaks MotionValue assignability across entry points (#2887)`
         )
     }
 }
