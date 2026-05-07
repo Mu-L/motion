@@ -4,13 +4,19 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
-## [12.38.1] 2026-05-05
+## [12.39.0] 2026-05-05
+
+### Added
+
+-   Support for `repeatType` and `repeatDelay` in animation sequences.
 
 ### Fixed
 
 -   Updated `visualElement` hydration order.
 -   `useAnimate`: Now respects `skipAnimations`.
 -   `AnimatePresence`: Fix object-form `initial` values not applied on re-entry after exit completes.
+-   `scroll`: Fixed callback progress when tracking an element.
+-   `useScroll`: Fix hardware acceleration when tracking an element.
 
 ## [12.38.0] 2026-03-16
 
