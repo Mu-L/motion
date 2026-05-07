@@ -765,28 +765,9 @@ describe("createAnimationsFromSequence", () => {
                 )
             }
         )
-
-        test("warns when repeatDelay is set on a segment", () => {
-            createAnimationsFromSequence(
-                [
-                    [
-                        a,
-                        { x: [0, 100] },
-                        { duration: 1, repeat: 1, repeatDelay: 0.5 },
-                    ],
-                ],
-                undefined,
-                undefined,
-                { spring }
-            )
-
-            expect(warn).toHaveBeenCalledWith(
-                expect.stringContaining("repeatDelay is not supported")
-            )
-        })
     })
 
-    test.skip("It correctly adds repeatDelay between repeated keyframes", () => {
+    test("It correctly adds repeatDelay between repeated keyframes", () => {
         const animations = createAnimationsFromSequence(
             [
                 [
