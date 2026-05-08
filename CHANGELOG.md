@@ -4,6 +4,12 @@ Motion adheres to [Semantic Versioning](http://semver.org/).
 
 Undocumented APIs should be considered internal and may change without warning.
 
+## Unreleased
+
+### Fixed
+
+-   Variants: Re-run keyframe animations when switching between variants that share identical keyframe arrays for a value.
+
 ## [12.39.0] 2026-05-05
 
 ### Added

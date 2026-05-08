@@ -85,7 +85,7 @@ describe("keyframes transition", () => {
         expect(xResult).toBe(100)
     })
 
-    test("keyframes animation doesn't rerun when variants change and keyframes are the same", async () => {
+    test("keyframes animation reruns when variants change and keyframes are the same", async () => {
         const xResult = await new Promise((resolve) => {
             const x = motionValue(0)
             const Component = ({ animate }: any) => {
@@ -109,7 +109,45 @@ describe("keyframes transition", () => {
             setTimeout(() => resolve(x.get()), 50)
         })
 
-        expect(xResult).toBe(100)
+        expect(xResult).toBe(50)
+    })
+
+    test("issue #2855: keyframes with shared values across variants rerun on each change", async () => {
+        const z = motionValue(0)
+        const updateCounts: number[] = []
+
+        const Component = ({ animate }: any) => (
+            <motion.div
+                animate={animate}
+                variants={{
+                    start: { rotateZ: [0, 10, 0] },
+                    end: { rotateZ: [0, 10, 0] },
+                }}
+                transition={{ duration: 0.05, ease: "linear" }}
+                style={{ rotateZ: z }}
+            />
+        )
+
+        const recordAndReset = async () => {
+            let count = 0
+            const unsubscribe = z.on("change", () => count++)
+            await new Promise((r) => setTimeout(r, 100))
+            unsubscribe()
+            updateCounts.push(count)
+        }
+
+        const { rerender } = render(<Component animate="start" />)
+        await recordAndReset()
+
+        rerender(<Component animate="end" />)
+        await recordAndReset()
+
+        rerender(<Component animate="start" />)
+        await recordAndReset()
+
+        expect(updateCounts[0]).toBeGreaterThan(0)
+        expect(updateCounts[1]).toBeGreaterThan(0)
+        expect(updateCounts[2]).toBeGreaterThan(0)
     })
 
     test("times works as expected", async () => {
