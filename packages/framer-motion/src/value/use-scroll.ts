@@ -144,24 +144,23 @@ export function useScroll({
     useEffect(() => {
         if (!needsStart.current) return
 
-        // The ref hasn't been hydrated yet — most likely it's set by an effect
-        // declared after useScroll (or in a parent component). Defer start to
-        // a microtask so those effects have a chance to run first.
+        // Defer to a microtask so any sibling/parent effect that hydrates the
+        // ref has a chance to run first.
         let cleanup: VoidFunction | undefined
         const tryStart = () => {
+            const containerPending = isRefPending(container)
+            const targetPending = isRefPending(target)
             invariant(
-                !isRefPending(container),
+                !containerPending,
                 "Container ref is defined but not hydrated",
                 "use-scroll-ref"
             )
             invariant(
-                !isRefPending(target),
+                !targetPending,
                 "Target ref is defined but not hydrated",
                 "use-scroll-ref"
             )
-            if (!isRefPending(container) && !isRefPending(target)) {
-                cleanup = start()
-            }
+            if (!containerPending && !targetPending) cleanup = start()
         }
         microtask.read(tryStart)
 

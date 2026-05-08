@@ -20,6 +20,8 @@ export const App = () => {
         if (!containerRef.current) return
         const root = ReactDOMClient.createRoot(containerRef.current)
         root.render(<Repro />)
+        // Defer unmount: React 18 errors when a root is unmounted
+        // synchronously from another root's effect cleanup.
         return () => {
             queueMicrotask(() => root.unmount())
         }
@@ -37,9 +39,7 @@ const Repro = () => {
     })
 
     useEffect(() => {
-        targetRef.current = document.querySelector(
-            "#target"
-        ) as HTMLDivElement | null
+        targetRef.current = document.querySelector<HTMLDivElement>("#target")
     }, [])
 
     const [progress, setProgress] = useState(0)
