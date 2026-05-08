@@ -300,7 +300,8 @@ export function createAnimationState(visualElement: any): AnimationState {
                  */
                 let valueHasChanged = false
                 if (isKeyframesTarget(next) && isKeyframesTarget(prev)) {
-                    valueHasChanged = !shallowCompare(next, prev)
+                    valueHasChanged =
+                        !shallowCompare(next, prev) || variantDidChange
                 } else {
                     valueHasChanged = next !== prev
                 }
