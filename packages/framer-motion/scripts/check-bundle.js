@@ -42,3 +42,18 @@ for (const [name, entry] of Object.entries(pkg.exports)) {
         )
     }
 }
+
+/**
+ * Verify that the CJS m bundle does not declare its own React contexts. If it
+ * does, `<LazyMotion>` from the main entry can't communicate with `<m.div>`
+ * because each CJS bundle would have a separate `createContext()` instance
+ * (#3091). The shared CJS chunk emitted from the rollup `cjs` build must
+ * supply `LazyContext`, `MotionContext` etc. to both `index.js` and `m.js`.
+ */
+const cjsM = readFileSync(path.join(dist, "cjs", "m.js"), "utf8")
+const ownLazyContext = cjsM.match(/createContext\(\{ strict: false \}\)/g)
+if (ownLazyContext) {
+    throw new Error(
+        `CJS m bundle (dist/cjs/m.js) defines its own LazyContext (${ownLazyContext.length} time(s)) instead of importing it from the shared chunk — this breaks LazyMotion + m component interop across CJS bundles (#3091)`
+    )
+}
