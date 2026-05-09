@@ -5,6 +5,5 @@
  * @param  {...functions} transformers
  * @return {function}
  */
-const combineFunctions = (a: Function, b: Function) => (v: any) => b(a(v))
 export const pipe = (...transformers: Function[]) =>
-    transformers.reduce(combineFunctions)
+    transformers.reduce((a, b) => (v: any) => b(a(v)))
