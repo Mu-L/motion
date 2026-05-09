@@ -24,7 +24,7 @@ function processFrame(timestamp: number) {
     frameData.isProcessing = false
 }
 
-describe("Spring follow at different frame rates (issue #3265)", () => {
+describe("Spring follow at different frame rates (issues #3265, #3407)", () => {
     beforeEach(() => {
         MotionGlobalConfig.useManualTiming = true
         frameData.timestamp = 0
