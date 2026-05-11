@@ -9,6 +9,7 @@ Undocumented APIs should be considered internal and may change without warning.
 ### Fixed
 
 -   Variants: Re-run keyframe animations when switching between variant labels even when they share identical keyframe arrays.
+-   Drag: Preserve in-flight motion value animations across React 19 reorder unmount/remount so `dragSnapToOrigin` no longer leaves the drag transform stranded after a layout swap.
 
 ## [12.39.0] 2026-05-05
 
