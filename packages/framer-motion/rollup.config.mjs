@@ -113,7 +113,15 @@ const umdDomProd = createUmd("lib/dom.js", `dist/dom.js`)
 const umdDomMiniProd = createUmd("lib/dom-mini.js", `dist/dom-mini.js`)
 
 const cjs = Object.assign({}, config, {
-    input: ["lib/index.js", "lib/client.js"],
+    /**
+     * `lib/m.js` is bundled here alongside `lib/index.js` so that the React
+     * contexts (LazyContext, MotionContext, etc.) are emitted in a shared
+     * chunk and not duplicated across the two CJS entry points. Without this,
+     * `<LazyMotion>` from the main entry can't communicate with `<m.div>`
+     * from the `/m` subpath because each CJS bundle would have its own
+     * `createContext()` instance. See issue #3091.
+     */
+    input: ["lib/index.js", "lib/client.js", "lib/m.js"],
     output: {
         entryFileNames: `[name].js`,
         dir: "dist/cjs",
@@ -139,7 +147,6 @@ const cjsDebug = Object.assign({}, cjs, { input : "lib/debug.js" })
 const cjsDom = Object.assign({}, cjs, { input : "lib/dom.js" })
 const cjsMini = Object.assign({}, cjs, { input : "lib/mini.js" })
 const cjsDomMini = Object.assign({}, cjs, { input : "lib/dom-mini.js" })
-const cjsM = Object.assign({}, cjs, { input : "lib/m.js" })
 
 export const es = Object.assign({}, config, {
     input: ["lib/index.js", "lib/mini.js", "lib/debug.js", "lib/dom.js", "lib/dom-mini.js", "lib/client.js", "lib/m.js","lib/projection.js"],
@@ -195,7 +202,6 @@ export default [
     cjsMini,
     cjsDom,
     cjsDomMini,
-    cjsM,
     es,
     indexTypes,
     clientTypes,
