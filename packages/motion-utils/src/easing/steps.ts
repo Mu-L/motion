@@ -10,6 +10,7 @@ import type { EasingFunction } from "./types"
 */
 export type Direction = "start" | "end"
 
+/*#__NO_SIDE_EFFECTS__*/
 export function steps(
     numSteps: number,
     direction: Direction = "end"

@@ -53,6 +53,7 @@ function binarySubdivide(
     return currentT
 }
 
+/*#__NO_SIDE_EFFECTS__*/
 export function cubicBezier(
     mX1: number,
     mY1: number,
