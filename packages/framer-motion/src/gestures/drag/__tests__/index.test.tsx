@@ -1,5 +1,6 @@
 import { useState } from "react"
 import {
+    AnimatePresence,
     BoundingBox,
     motion,
     motionValue,
@@ -1214,5 +1215,37 @@ describe("keyboard accessible elements", () => {
 
         expect(onDragStart).toBeCalledTimes(1)
         expect(x.get()).toBeGreaterThanOrEqual(100)
+    })
+})
+
+describe("drag with AnimatePresence initial={false}", () => {
+    test("drag starts from animate value, not initial value", async () => {
+        const Component = () => (
+            <AnimatePresence initial={false}>
+                <MockDrag>
+                    <motion.div
+                        data-testid="draggable"
+                        drag="y"
+                        dragMomentum={false}
+                        initial={{ y: 200 }}
+                        animate={{ y: 0 }}
+                    />
+                </MockDrag>
+            </AnimatePresence>
+        )
+
+        const { getByTestId, rerender } = render(<Component />)
+        rerender(<Component />)
+
+        const pointer = await drag(getByTestId("draggable")).to(0, 10)
+
+        // After dragging down 10px, transform should reflect y = 10
+        // (drag offset from animate.y = 0), not y = 210 (drag offset from
+        // initial.y = 200).
+        expect(getByTestId("draggable")).toHaveStyle(
+            "transform: translateY(10px)"
+        )
+
+        pointer.end()
     })
 })
