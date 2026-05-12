@@ -10,6 +10,8 @@ Undocumented APIs should be considered internal and may change without warning.
 
 -   Variants: Re-run keyframe animations when switching between variant labels even when they share identical keyframe arrays.
 -   `LazyMotion`: Share React contexts between the `framer-motion` and `framer-motion/m` (and therefore `motion/react` and `motion/react-m`) CJS bundles so that `<m.div>` from the `/m` subpath picks up features loaded by `<LazyMotion>` from the main entry point.
+-   `useScroll`: Support hydrating `target` and `container` refs from anywhere in the tree.
+-   Drag gesture no longer starts from incorrect start point when rendered inside `<AnimatePresence initial={false} />`.
 
 ## [12.39.0] 2026-05-05
 
