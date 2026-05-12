@@ -602,7 +602,8 @@ export abstract class VisualElement<
         this.valueSubscriptions.set(key, () => {
             removeOnChange()
             if (removeSyncCheck) removeSyncCheck()
-            if (value.owner) value.stop()
+            // Defer to MotionValue.on("change") auto-stop so React 19 remounts
+            // can resubscribe before the animation is cancelled (#3315).
         })
     }
 
