@@ -3,5 +3,6 @@
 import { EasingModifier } from "../types"
 
 // Turns easeIn into easeOut.
+/*#__NO_SIDE_EFFECTS__*/
 export const reverseEasing: EasingModifier = (easing) => (p) =>
     1 - easing(1 - p)

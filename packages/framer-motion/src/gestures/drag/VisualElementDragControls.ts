@@ -410,6 +410,21 @@ export class VisualElementDragControls {
         // TODO
         if (!projection || !projection.layout) return false
 
+        /**
+         * Refresh the root scroll offset so the constraint's viewport box
+         * translates to correct page coordinates. The scroll captured at
+         * drag mount can be stale if the document was scrolled afterwards —
+         * e.g. via the browser restoring scroll on refresh, or an ancestor
+         * layout effect running after this element's mount (#2829).
+         *
+         * Clear the cached scroll first so `updateScroll` bypasses its
+         * per-animationId cache and re-reads the live value.
+         */
+        if (projection.root) {
+            projection.root.scroll = undefined
+            projection.root.updateScroll()
+        }
+
         const constraintsBox = measurePageBox(
             constraintsElement,
             projection.root!,
@@ -536,9 +551,7 @@ export class VisualElementDragControls {
             ? externalMotionValue
             : this.visualElement.getValue(
                   axis,
-                  (props.initial
-                      ? props.initial[axis as keyof typeof props.initial]
-                      : undefined) || 0
+                  this.visualElement.latestValues[axis] ?? 0
               )
     }
 
